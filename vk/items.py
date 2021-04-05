@@ -18,3 +18,4 @@ class VkDialogue(Item):
     dType = Field()
     id = Field()
     name = Field()
+    pass

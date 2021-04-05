@@ -86,8 +86,21 @@ class VkSpiderSpider(Spider):
             else:
                 dialogue["dType"] = 'group'
             dialogue["id"] = query['peer'][0]
-        dialogue["name"] = response.xpath('//*[@class="mailHat__convoTitle"]/text()').extract_first()
+        # dialogue["name"] = response.xpath('//*[@class="mailHat__convoTitle"]').extract_first()
+        html = response.body_as_unicode()
+        soup = BeautifulSoup(html, 'lxml')
+        text = soup.find("span", {"class": "sub_header_label"}).text
+        dialogue["name"] = text
         self.logger.info("dialogue: name: {}, id: {}, type: {}".format(dialogue["name"],
                                                                        dialogue["id"],
                                                                        dialogue["dType"]))
+        # msg =
+        while ()
+            FormRequest.from_response(response,
+                                    formdata={"act": "show",
+                                              "peer_id": dialogue["id"],
+                                              # "msg": msg,
+                                              "direction": "before",
+                                              "_ajax": "1"},
+                                    callback=self.parse_im)
         pass

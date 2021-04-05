@@ -14,7 +14,7 @@ NEWSPIDER_MODULE = 'vk.spiders'
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = 'vk (+http://www.yourdomain.com)'
+USER_AGENT = 'kv (+http://www.ugaga.com)'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
