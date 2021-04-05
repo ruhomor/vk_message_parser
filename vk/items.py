@@ -13,3 +13,7 @@ class VkMessage(Item):
     time = Field()
     repliedId = Field()
     pass
+
+class VkDialogue(Item):
+    dialogueType = Field()
+    dialogueName = Field()
