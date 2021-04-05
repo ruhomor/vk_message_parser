@@ -60,7 +60,6 @@ class VkSpiderSpider(Spider):
         # chat_links = response.xpath('//*[@class="mailScrap__items mailScrap__items_folder"]//a/@href').extract()
         # chat_links = response.xpath('//*[@id="mcont"]/div/div[1]/div[2]/div/div[4]/div[1]/div/div[1]//div/a/@href').extract()
         # print(chat_links)
-        dialogue = VkDialogue()
         html = response.body_as_unicode()
         soup = BeautifulSoup(html, 'lxml')
         soup = soup.find_all(lambda tag: tag.name == 'a' and
@@ -70,8 +69,25 @@ class VkSpiderSpider(Spider):
             link = a.get('href')
             self.logger.info("fetched chat link: {}".format(link))
             hrefs.append(link)
-            yield(Request(url="https://m.vk.com" + link, callback=self.parse_dialouge))
+            yield(Request(url="https://m.vk.com" + link, callback=self.parse_dialogue))
         pass
 
     def parse_dialogue(self, response):
+        dialogue = VkDialogue()
+        self.logger.info("visited chat: {}".format(response.url))
+        parsed_url = urlparse(response.url)
+        query = parse_qs(parsed_url.query)
+        if 'chat' in query:
+            dialogue["dType"] = 'chat'
+            dialogue["id"] = query['chat'][0]
+        else:
+            if int(query["peer"][0]) > 0:
+                dialogue["dType"] = 'person'
+            else:
+                dialogue["dType"] = 'group'
+            dialogue["id"] = query['peer'][0]
+        dialogue["name"] = response.xpath('//*[@class="mailHat__convoTitle"]/text()').extract_first()
+        self.logger.info("dialogue: name: {}, id: {}, type: {}".format(dialogue["name"],
+                                                                       dialogue["id"],
+                                                                       dialogue["dType"]))
         pass

@@ -15,5 +15,6 @@ class VkMessage(Item):
     pass
 
 class VkDialogue(Item):
-    dialogueType = Field()
-    dialogueName = Field()
+    dType = Field()
+    id = Field()
+    name = Field()
