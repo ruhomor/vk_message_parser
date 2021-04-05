@@ -1,6 +1,8 @@
 from scrapy import Spider, Request, FormRequest
 from vk.items import VkMessage
 from urllib.parse import urlencode
+from urllib.parse import urlparse
+from urllib.parse import parse_qs
 import json
 from vk import pipelines
 
@@ -10,13 +12,21 @@ class VkSpiderSpider(Spider):
     allowed_domains = ['vk.com']
     start_urls = ['http://vk.com/login']
 
-    def parse(self, response):  # login function
+    def parse(self, response):  # login function TODO two-factor bs
         email = input()
         password = input()
-        ip_h = response.xpath('//*[@id="login_form"]/*[@name="ip_h"]/@value').extract_first()
-        lg_h = response.xpath('//*[@id="login_form"]/*[@name="lg_h"]/@value').extract_first()
-        self.logger.log("got ip_h: {}".format(ip_h))
-        self.logger.log("got lg_h: {}".format(ip_h))
+        # ip_h = response.xpath('//*[@id="login_form"]/*[@name="ip_h"]/@value').extract_first()
+        # lg_h = response.xpath('//*[@id="login_form"]/*[@name="lg_h"]/@value').extract_first()
+        action = response.xpath('//*[@id="mcont"]//form/@action').extract_first()
+        print("FFFFFFFFFFFFFFFFFFFFFFFFFFF")
+        print(action)
+        print("FFFFFFFFFFFFFFFFFFFFFFFFFFF")
+        parsed_action = urlparse(action)
+        action_query = parse_qs(parsed_action.query)
+        ip_h = action_query["ip_h"][0]
+        lg_h = action_query["lg_h"][0]
+        self.logger.info("got ip_h: {}".format(ip_h))
+        self.logger.info("got lg_h: {}".format(lg_h))
         yield FormRequest.from_response(response,
                                         formdata={"act": "login",
                                                   "role": "al_frame",
@@ -35,11 +45,9 @@ class VkSpiderSpider(Spider):
         pass
 
     def after_login(self, response):
-        if "Error while logging in" in response.body:
-            self.logger.error("Login failed!")
-        else:
-            self.logger.error("Login succeeded!")
-            item = VkMessage()
-            item["quote"] = response.css(".text").extract()
-            item["author"] = response.css(".author").extract()
-            return item
+        yield Request(url="https://vk.com/im", callback=self.parse_im)
+        pass
+
+    def parse_im(self, response):
+        print("parsing imimim")
+        pass
