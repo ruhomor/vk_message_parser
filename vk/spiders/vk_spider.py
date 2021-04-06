@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 class VkSpiderSpider(Spider):
     name = 'vk_spider'
     allowed_domains = ['vk.com']
-    start_urls = ['http://vk.com/login']
+    start_urls = ['http://m.vk.com/login']
     offset = 1000
 
     def parse(self, response):  # login function TODO two-factor bs
@@ -94,13 +94,16 @@ class VkSpiderSpider(Spider):
         self.logger.info("dialogue: name: {}, id: {}, type: {}".format(dialogue["name"],
                                                                        dialogue["id"],
                                                                        dialogue["dType"]))
+        f = open("response.body_as_unicode", "w")
+        f.write(response.body_as_unicode())
+        f.close()
         # msg =
-        while ()
-            FormRequest.from_response(response,
-                                    formdata={"act": "show",
-                                              "peer_id": dialogue["id"],
-                                              # "msg": msg,
-                                              "direction": "before",
-                                              "_ajax": "1"},
-                                    callback=self.parse_im)
+        #while ()
+        #    FormRequest.from_response(response,
+        #                            formdata={"act": "show",
+        #                                      "peer_id": dialogue["id"],
+        #                                      "msg": msg,
+        #                                      "direction": "before",
+        #                                      "_ajax": "1"},
+        #                            callback=self.parse_im)
         pass
