@@ -7,59 +7,93 @@ import json
 from vk import pipelines
 from pprint import pprint
 from bs4 import BeautifulSoup
+from selenium import webdriver
+# from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+import os.path
+from os import path
+import shutil
+from vk.settings import PROFILESTORAGEPATH, PROFILE
 
 
 class VkSpiderSpider(Spider):
     name = 'vk_spider'
     allowed_domains = ['vk.com']
-    start_urls = ['http://m.vk.com/login']
+    start_urls = ['https://vk.com/']
     offset = 1000
 
+    def save_profile(self):
+        # driver.execute_script("window.close()")
+        # time.sleep(0.5)
+        currentProfilePath = self.driver.capabilities[PROFILE]
+        shutil.copytree(currentProfilePath, PROFILESTORAGEPATH,
+                        ignore_dangling_symlinks=True)
+
+    def scroll_down_im(self):
+        # Get scroll height
+        last_height = self.driver.execute_script("return document.body.scrollHeight")
+        # wait till page loads
+        el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
+        while True:
+            # Scroll down to bottom
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            # Wait to load page
+            WebDriverWait(self.driver, timeout=10)
+            # Calculate new scroll height and compare with last scroll height
+            new_height = self.driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+        pass
+
+    def after_login(self):
+        el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_xpath('//*[@id="l_msg"]/a'))
+        el.click()
+        el.click()
+        self.scroll_down_im()
+        pass
+
+    def sign_in(self):
+        self.driver.get("https://www.vk.com/")
+        self.driver.find_element_by_id("index_email").send_keys(self.username)
+        # find password input field and insert password as well
+        self.driver.find_element_by_id("index_pass").send_keys(self.password)
+        # click login button
+        self.driver.find_element_by_id("index_login_button").click()
+
+        el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("authcheck_code"))
+        el.send_keys(input())
+        # self.driver.find_element_by_id("authcheck_code").send_keys(input())
+        self.driver.find_element_by_id("login_authcheck_submit_btn").click()
+        self.after_login()
+        self.save_profile() # no need in signing in again
+        pass
+
+    def signed_in(self):
+        self.driver.get("https://www.vk.com/")
+        self.after_login()
+        pass
+
+    def __init__(self):
+        f = open("email_password.txt", 'r')
+        self.username, self.password = f.readline().split()
+        self.timeout = 100
+        f.close()
+        if path.exists(PROFILESTORAGEPATH):  # loads existing profile if it exists
+            self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
+                                            firefox_profile=webdriver.FirefoxProfile(PROFILESTORAGEPATH))
+            self.driver.get("https://www.vk.com/")
+            self.signed_in()
+        else:
+            self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install())
+            self.sign_in()
+        pass
+
     def parse(self, response):  # login function TODO two-factor bs
-        email = input()
-        password = input()
-        # ip_h = response.xpath('//*[@id="login_form"]/*[@name="ip_h"]/@value').extract_first()
-        # lg_h = response.xpath('//*[@id="login_form"]/*[@name="lg_h"]/@value').extract_first()
-        action = response.xpath('//*[@id="mcont"]//form/@action').extract_first()
-        parsed_action = urlparse(action)
-        action_query = parse_qs(parsed_action.query)
-        ip_h = action_query["ip_h"][0]
-        lg_h = action_query["lg_h"][0]
-        self.logger.info("got ip_h: {}".format(ip_h))
-        self.logger.info("got lg_h: {}".format(lg_h))
-        yield FormRequest.from_response(response,
-                                        formdata={"act": "login",
-                                                  "role": "al_frame",
-                                                  "expire": "",
-                                                  "to": "bG9naW4-",  # bG9naW4-
-                                                  "recaptcha": "",
-                                                  "captcha_sid": "",
-                                                  "captcha_key": "",
-                                                  "_origin": "https://vk.com",
-                                                  "ip_h": ip_h,
-                                                  "lg_h": lg_h,
-                                                  "ul": "",
-                                                  "email": email,
-                                                  "pass": password},
-                                        callback=self.after_login)
-        pass
-
-    def after_login(self, response):
-        yield Request(url="https://m.vk.com/mail", callback=self.scroll_im)
-        pass
-
-    def scroll_im(self, response):
-        for currentOffset in range(0, self.offset, 20):
-            yield FormRequest.from_response(response,
-                                            formdata={"offset": str(currentOffset),
-                                                      "_ajax": "1"},
-                                            callback=self.parse_im)
         pass
 
     def parse_im(self, response):
-        # chat_links = response.xpath('//*[@class="mailScrap__items mailScrap__items_folder"]//a/@href').extract()
-        # chat_links = response.xpath('//*[@id="mcont"]/div/div[1]/div[2]/div/div[4]/div[1]/div/div[1]//div/a/@href').extract()
-        # print(chat_links)
         html = response.body_as_unicode()
         soup = BeautifulSoup(html, 'lxml')
         soup = soup.find_all(lambda tag: tag.name == 'a' and

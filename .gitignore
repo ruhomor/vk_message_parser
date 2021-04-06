@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Driver files, venv and credentials
+
+email_password.txt
+chromedriver
+mozilla_profile/
+vk_venv/
+.idea/
