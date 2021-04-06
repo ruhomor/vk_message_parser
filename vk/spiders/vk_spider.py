@@ -12,8 +12,11 @@ from selenium import webdriver
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 import os.path
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.keys import Keys
 from os import path
 import shutil
+import time
 from vk.settings import PROFILESTORAGEPATH, PROFILE
 
 
@@ -27,6 +30,8 @@ class VkSpiderSpider(Spider):
         # driver.execute_script("window.close()")
         # time.sleep(0.5)
         currentProfilePath = self.driver.capabilities[PROFILE]
+        if path.exists(PROFILESTORAGEPATH):
+            shutil.rmtree(PROFILESTORAGEPATH)
         shutil.copytree(currentProfilePath, PROFILESTORAGEPATH,
                         ignore_dangling_symlinks=True)
 
@@ -35,20 +40,21 @@ class VkSpiderSpider(Spider):
         last_height = self.driver.execute_script("return document.body.scrollHeight")
         # wait till page loads
         el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
-        while True:
-            # Scroll down to bottom
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            # Wait to load page
-            WebDriverWait(self.driver, timeout=10)
-            # Calculate new scroll height and compare with last scroll height
-            new_height = self.driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break
-            last_height = new_height
+        el = self.driver.find_element_by_tag_name("body")
+        pcounter = 0
+        self.count_dialogues()
+        while pcounter < self.dialogues_count:
+            pcounter = self.dialogues_count
+            for i in range(100):
+                el.send_keys(Keys.ARROW_DOWN)
+                time.sleep(0.1)
+            time.sleep(1)
+            self.count_dialogues()
         pass
 
     def after_login(self):
         el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_xpath('//*[@id="l_msg"]/a'))
+        time.sleep(5)
         el.click()
         el.click()
         self.scroll_down_im()
@@ -62,35 +68,49 @@ class VkSpiderSpider(Spider):
         # click login button
         self.driver.find_element_by_id("index_login_button").click()
 
-        el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("authcheck_code"))
-        el.send_keys(input())
+        time.sleep(5)
+        if self.driver.current_url == "https://vk.com/login?act=authcheck":
+            el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("authcheck_code"))
+            el.send_keys(input())
         # self.driver.find_element_by_id("authcheck_code").send_keys(input())
-        self.driver.find_element_by_id("login_authcheck_submit_btn").click()
+            self.driver.find_element_by_id("login_authcheck_submit_btn").click()
         self.after_login()
-        self.save_profile() # no need in signing in again
+        self.save_profile()  # no need in signing in again
         pass
 
-    def signed_in(self):
-        self.driver.get("https://www.vk.com/")
-        self.after_login()
-        pass
+    def check_login_status(self):
+        self.driver.get("https://www.vk.com/feed")
+        time.sleep(3)
+        if "feed" in self.driver.current_url:
+            self.after_login()
+        else:
+            self.sign_in()
+
 
     def __init__(self):
         f = open("email_password.txt", 'r')
         self.username, self.password = f.readline().split()
         self.timeout = 100
         f.close()
+        opts = Options()
         if path.exists(PROFILESTORAGEPATH):  # loads existing profile if it exists
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
-                                            firefox_profile=webdriver.FirefoxProfile(PROFILESTORAGEPATH))
-            self.driver.get("https://www.vk.com/")
-            self.signed_in()
+                                            firefox_profile=webdriver.FirefoxProfile(PROFILESTORAGEPATH),
+                                            options=opts)
+            self.check_login_status()
         else:
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install())
             self.sign_in()
         pass
 
     def parse(self, response):  # login function TODO two-factor bs
+        pass
+
+    def count_dialogues(self):
+        soup = BeautifulSoup(self.driver.page_source, 'lxml')
+        self.dialogues = soup.find('ul', {'id': "im_dialogs"})
+        self.dialogue_list = self.dialogues.find_all("li")
+        self.dialogues_count = len(self.dialogue_list)
         pass
 
     def parse_im(self, response):
