@@ -18,13 +18,13 @@ from os import path
 import shutil
 import time
 from vk.settings import PROFILESTORAGEPATH, PROFILE
+from scrapy_selenium import SeleniumRequest
 
 
 class VkSpiderSpider(Spider):
     name = 'vk_spider'
     allowed_domains = ['vk.com']
     start_urls = ['https://vk.com/']
-    offset = 1000
 
     def save_profile(self):
         # driver.execute_script("window.close()")
@@ -42,14 +42,14 @@ class VkSpiderSpider(Spider):
         el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
         el = self.driver.find_element_by_tag_name("body")
         pcounter = 0
-        self.count_dialogues()
+        self.update_dialogues()
         while pcounter < self.dialogues_count:
             pcounter = self.dialogues_count
             for i in range(100):
                 el.send_keys(Keys.ARROW_DOWN)
                 time.sleep(0.1)
             time.sleep(1)
-            self.count_dialogues()
+            self.update_dialogues()
         pass
 
     def after_login(self):
@@ -90,7 +90,10 @@ class VkSpiderSpider(Spider):
     def __init__(self):
         f = open("email_password.txt", 'r')
         self.username, self.password = f.readline().split()
+        self.dialogue_list = []
+        self.data_list_ids = []
         self.timeout = 100
+        self.dialogues_count = 0
         f.close()
         opts = Options()
         if path.exists(PROFILESTORAGEPATH):  # loads existing profile if it exists
@@ -103,14 +106,22 @@ class VkSpiderSpider(Spider):
             self.sign_in()
         pass
 
-    def parse(self, response):  # login function TODO two-factor bs
+    def parse(self, response):
+        response = response.replace(self.driver.page_source)
+        for id in self.data_list_ids:
+            yield (SeleniumRequest(url="https://vk.com/?sel=" + id,
+                                   callback=self.parse_dialogue,
+                                   script='window.scrollTo(0, document.body.scrollHeight);'))
         pass
 
-    def count_dialogues(self):
+    def update_dialogues(self):
         soup = BeautifulSoup(self.driver.page_source, 'lxml')
         self.dialogues = soup.find('ul', {'id': "im_dialogs"})
         self.dialogue_list = self.dialogues.find_all("li")
         self.dialogues_count = len(self.dialogue_list)
+        for i in range(len(self.dialogue_list)):
+            if self.dialogue_list[i]["data-list-id"] not in self.data_list_ids:
+                self.data_list_ids.append(self.dialogue_list[i]["data-list-id"])
         pass
 
     def parse_im(self, response):
@@ -123,7 +134,7 @@ class VkSpiderSpider(Spider):
             link = a.get('href')
             self.logger.info("fetched chat link: {}".format(link))
             hrefs.append(link)
-            yield(Request(url="https://m.vk.com" + link, callback=self.parse_dialogue))
+            yield Request(url="https://m.vk.com" + link, callback=self.parse_dialogue)
         pass
 
     def parse_dialogue(self, response):
