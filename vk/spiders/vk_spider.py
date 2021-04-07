@@ -134,6 +134,16 @@ class VkSpiderSpider(Spider):
                 self.data_list_ids.append(self.dialogue_list[i]["data-list-id"])
         pass
 
+    def update_messages(self):
+        soup = BeautifulSoup(self.driver.page_source, 'lxml')
+        self.message_stacks = soup.find('div', {'class': "im-mess-stack _im_mess_stack "})
+        # self.dialogue_list = self.dialogues.find_all("li")
+        # self.dialogues_count = len(self.dialogue_list)
+        # for i in range(len(self.dialogue_list)):
+        #    if self.dialogue_list[i]["data-list-id"] not in self.data_list_ids:
+        #        self.data_list_ids.append(self.dialogue_list[i]["data-list-id"])
+        pass
+
     def parse_im(self, response):
         html = response.body_as_unicode()
         soup = BeautifulSoup(html, 'lxml')
