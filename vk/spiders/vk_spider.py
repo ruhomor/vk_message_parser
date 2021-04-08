@@ -136,59 +136,55 @@ class VkSpiderSpider(Spider):
 
     def update_messages(self):
         soup = BeautifulSoup(self.driver.page_source, 'lxml')
-        self.message_stacks = soup.find('div', {'class': "im-mess-stack _im_mess_stack "})
-        # self.dialogue_list = self.dialogues.find_all("li")
-        # self.dialogues_count = len(self.dialogue_list)
-        # for i in range(len(self.dialogue_list)):
-        #    if self.dialogue_list[i]["data-list-id"] not in self.data_list_ids:
-        #        self.data_list_ids.append(self.dialogue_list[i]["data-list-id"])
-        pass
+        self.message_stacks = soup.find_all('div',
+                               {'class': lambda x: x
+                                and 'im-mess-stack' in x.split()
+                               })
+        self.stack_count = 0 # only new stacks?
+        for stack in self.message_stacks:
+            print("stack: ")
+            self.stack_count += 1 # only new stacks?
+            author_id = stack["data-peer"]
+            messages = stack.find_all("li")
+            print("author_id: ", author_id)
+            print()
 
-    def parse_im(self, response):
-        html = response.body_as_unicode()
-        soup = BeautifulSoup(html, 'lxml')
-        soup = soup.find_all(lambda tag: tag.name == 'a' and
-                                         tag.get('class') == ['dialog_item'])
-        hrefs = []
-        for a in soup:
-            link = a.get('href')
-            self.logger.info("fetched chat link: {}".format(link))
-            hrefs.append(link)
-            yield Request(url="https://m.vk.com" + link, callback=self.parse_dialogue)
-        pass
+            for message in messages:  # removing forwarded messages from message_list
+                replied_to_message = message.find("div", {"class": "im-replied--text"})
+                replied_to_msg_id = None
+                if replied_to_message:
+                    replied_to_msg = message.find("div", {"class": lambda x: x
+                                                                             and "im-replied" in x.split()
+                                                          })
+                    replied_to_msg_id = replied_to_msg["data-msgid"]
+                    replied_to_msg.extract()
+                if "im-mess_fwd" not in message["class"]:
+                    forwarded_messages = None
+                    forwarded_messages = message.find_all("li", {"class": lambda x: x
+                                                                                    and "im-mess_fwd" in x.split()
+                                                                 })
+                    forwarded_messages_list = []
+                    if (forwarded_messages):
+                        for fwd_message in forwarded_messages:
+                            pprint("FORWARDED MESSAGE")
+                            forwarded_messages_list.append(self.handle_message(fwd_message))
+                        # pprint(forwarded_messages_list)
+                    self.handle_message(message, replied_to_msg_id,
+                                        forwarded_messages_list)  # HANDLE AFTER FWD MESSAGES IN REAL CODE
+                print()
 
-    def parse_dialogue(self, response):
-        dialogue = VkDialogue()
-        self.logger.info("visited chat: {}".format(response.url))
-        parsed_url = urlparse(response.url)
-        query = parse_qs(parsed_url.query)
-        if 'chat' in query:
-            dialogue["dType"] = 'chat'
-            dialogue["id"] = query['chat'][0]
-        else:
-            if int(query["peer"][0]) > 0:
-                dialogue["dType"] = 'person'
-            else:
-                dialogue["dType"] = 'group'
-            dialogue["id"] = query['peer'][0]
-        # dialogue["name"] = response.xpath('//*[@class="mailHat__convoTitle"]').extract_first()
-        html = response.body_as_unicode()
-        soup = BeautifulSoup(html, 'lxml')
-        text = soup.find("span", {"class": "sub_header_label"}).text
-        dialogue["name"] = text
-        self.logger.info("dialogue: name: {}, id: {}, type: {}".format(dialogue["name"],
-                                                                       dialogue["id"],
-                                                                       dialogue["dType"]))
-        f = open("response.body_as_unicode", "w")
-        f.write(response.body_as_unicode())
-        f.close()
-        # msg =
-        #while ()
-        #    FormRequest.from_response(response,
-        #                            formdata={"act": "show",
-        #                                      "peer_id": dialogue["id"],
-        #                                      "msg": msg,
-        #                                      "direction": "before",
-        #                                      "_ajax": "1"},
-        #                            callback=self.parse_im)
-        pass
+    def handle_message(self, message, replied_to_msg_id=None, forwarded_msg_ids=[]):
+        message_id = message["data-msgid"]
+        reciever_id = message["data-peer"]
+        message_ts = message["data-ts"]
+        message_text = message.find("div", {"class": lambda x: x
+                                                               and "im-mess--text" in x.split()
+                                            }).text.strip()
+
+        print("message_id: ", message_id)
+        print("replied_to_msg_id: ", replied_to_msg_id)
+        print("reciever_id: ", reciever_id)
+        print("message_ts: ", message_ts)
+        print("message_text: ", message_text)
+        print("forwarded_msg_ids: ", forwarded_msg_ids)
+        return message_id
