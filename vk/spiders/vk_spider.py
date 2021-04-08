@@ -36,10 +36,7 @@ class VkSpiderSpider(Spider):
                         ignore_dangling_symlinks=True)
 
     def scroll_down_im(self):
-        # Get scroll height
-        last_height = self.driver.execute_script("return document.body.scrollHeight")
-        # wait till page loads
-        el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
+        WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
         el = self.driver.find_element_by_tag_name("body")
         pcounter = 0
         self.update_dialogues()
@@ -50,6 +47,26 @@ class VkSpiderSpider(Spider):
                 time.sleep(0.1)
             time.sleep(1)
             self.update_dialogues()
+        self.parse_dialogues()
+        pass
+
+    def parse_dialogues(self):
+        for dialogue in self.dialogue_list:
+            self.driver.get("https://www.vk.com/im?sel=" + dialogue)
+        self.scroll_up_dialogue()
+        pass
+
+    def scroll_up_dialogue(self):
+        WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
+        pcounter = 0
+        self.update_stacks()
+        while pcounter < self.stack_count:
+            pcounter = self.stack_count
+            for i in range(20):
+                self.driver.execute_script("window.scrollTo({ top: 0, behavior: 'smooth' });")
+                time.sleep(0.1)
+            time.sleep(1)
+            self.update_stacks()
         pass
 
     def after_login(self):
@@ -94,6 +111,8 @@ class VkSpiderSpider(Spider):
         self.data_list_ids = []
         self.timeout = 100
         self.dialogues_count = 0
+        self.stack_count = 0
+        self.message_ids = []
         f.close()
         opts = Options()
         if path.exists(PROFILESTORAGEPATH):  # loads existing profile if it exists
@@ -134,7 +153,7 @@ class VkSpiderSpider(Spider):
                 self.data_list_ids.append(self.dialogue_list[i]["data-list-id"])
         pass
 
-    def update_messages(self):
+    def update_stacks(self):
         soup = BeautifulSoup(self.driver.page_source, 'lxml')
         self.message_stacks = soup.find_all('div',
                                {'class': lambda x: x
@@ -175,16 +194,17 @@ class VkSpiderSpider(Spider):
 
     def handle_message(self, message, replied_to_msg_id=None, forwarded_msg_ids=[]):
         message_id = message["data-msgid"]
-        reciever_id = message["data-peer"]
-        message_ts = message["data-ts"]
-        message_text = message.find("div", {"class": lambda x: x
-                                                               and "im-mess--text" in x.split()
-                                            }).text.strip()
+        if message_id not in self.message_ids:
+            reciever_id = message["data-peer"]
+            message_ts = message["data-ts"]
+            message_text = message.find("div", {"class": lambda x: x
+                                                                   and "im-mess--text" in x.split()
+                                                }).text.strip()
 
-        print("message_id: ", message_id)
-        print("replied_to_msg_id: ", replied_to_msg_id)
-        print("reciever_id: ", reciever_id)
-        print("message_ts: ", message_ts)
-        print("message_text: ", message_text)
-        print("forwarded_msg_ids: ", forwarded_msg_ids)
+            print("message_id: ", message_id)
+            print("replied_to_msg_id: ", replied_to_msg_id)
+            print("reciever_id: ", reciever_id)
+            print("message_ts: ", message_ts)
+            print("message_text: ", message_text)
+            print("forwarded_msg_ids: ", forwarded_msg_ids)
         return message_id
