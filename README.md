@@ -25,7 +25,7 @@ Enter to project directory:\
 Create and activate virtualenv:\
 `$ python3 -m venv vk_venv && source ./vk_venv/bin/activate`\
 Install dependencies:\
-`(my_venv)$ pip3 install -r ./requirements.txt`
+`(vk_venv)$ pip3 install -r ./requirements.txt`
 
 ## Usage
 Create a file with you "email_password.txt" with your credentials:\
@@ -36,7 +36,7 @@ If a 2-factor authentification window appears type in auth-code into the shell
 
 To-do list:
 * Fix receiver_id field()
-* Save messages in DB
+* Save messages to DB
 
 ## Status
 Project is: _in progress_
