@@ -9,6 +9,8 @@ from os import path
 import shutil
 import time
 from vk.settings import PROFILESTORAGEPATH, PROFILE
+from vk.items import VkMessage, VkDialogue
+
 
 class VkSpiderSpider(Spider):
     name = 'vk_spider'
@@ -38,23 +40,35 @@ class VkSpiderSpider(Spider):
         pass
 
     def parse_dialogues(self):
-        for dialogue in self.data_list_ids:
+        for dialogue in self.dialogue_dict.keys():
+            dialogueItem = VkDialogue()
             self.driver.get("https://www.vk.com/im?sel=" + dialogue)
-            self.scroll_up_dialogue()
+            soup = self.driver.page_source
+            dialogueRef = soup.find("a", {"class": lambda x: x and "im-page--title-main-inner" in x.split()})
+            dialogueItem["dialogueRef"] = dialogueRef
+            dialogueItem["dialogueId"] = dialogue
+            dialogueItem["name"] = dialogue_dict["dialogue"]
+            dialogueItem["messages"] = self.scroll_up_dialogue()
+            yield dialogueItem
         pass
 
     def scroll_up_dialogue(self):
         WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
         pcounter = 0
-        self.update_stacks()
+        messageItems = []
+        for messageItem in self.update_stacks(): #filtering unique messages
+            if messageItem["messageId"] not in self.message_ids:
+                messageItems.append(messageItem)
         while pcounter < self.stack_count:
             pcounter = self.stack_count
             for i in range(20):
                 self.driver.execute_script("window.scrollTo({ top: 0, behavior: 'smooth' });")
                 time.sleep(0.1)
             time.sleep(1)
-            self.update_stacks()
-        pass
+            for messageItem in self.update_stacks(): #filtering unique items
+                if messageItem["messageId"] not in self.message_ids:
+                    messageItems.append(messageItem)
+        return messageItems
 
     def after_login(self):
         el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_xpath('//*[@id="l_msg"]/a'))
@@ -90,12 +104,11 @@ class VkSpiderSpider(Spider):
         else:
             self.sign_in()
 
-
     def __init__(self):
         f = open("email_password.txt", 'r')
         self.username, self.password = f.readline().split()
         self.dialogue_list = []
-        self.data_list_ids = []
+        self.dialogue_dict = {}
         self.timeout = 100
         self.dialogues_count = 0
         self.stack_count = 0
@@ -106,19 +119,12 @@ class VkSpiderSpider(Spider):
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
                                             firefox_profile=webdriver.FirefoxProfile(PROFILESTORAGEPATH),
                                             options=opts)
-            self.check_login_status()
-
         else:
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install())
-            self.sign_in()
         pass
 
     def parse(self, response):
-        #response = response.replace(self.driver.page_source)
-        #for id in self.data_list_ids:
-        #    yield (SeleniumRequest(url="https://vk.com/?sel=" + id,
-        #                           callback=self.parse_dialogue,
-        #                           script='window.scrollTo(0, document.body.scrollHeight);'))
+        self.check_login_status()
         pass
 
     def update_dialogues(self):
@@ -127,25 +133,23 @@ class VkSpiderSpider(Spider):
         self.dialogue_list = self.dialogues.find_all("li")
         self.dialogues_count = len(self.dialogue_list)
         for i in range(len(self.dialogue_list)):
-            if self.dialogue_list[i]["data-list-id"] not in self.data_list_ids:
-                self.data_list_ids.append(self.dialogue_list[i]["data-list-id"])
+            if self.dialogue_list[i]["data-list-id"] not in self.dialogue_dict.keys():
+                self.dialogue_dict[self.dialogue_list[i]["data-list-id"]]\
+                    = self.dialogue_list[i].find("span", {"class": "blind_label"})["aria-label"][SKIP:].strip()
         pass
 
     def update_stacks(self):
         soup = BeautifulSoup(self.driver.page_source, 'lxml')
         self.message_stacks = soup.find_all('div',
-                               {'class': lambda x: x
-                                and 'im-mess-stack' in x.split()
-                               })
-        self.stack_count = 0 # only new stacks?
+                                            {'class': lambda x: x
+                                                                and 'im-mess-stack' in x.split()
+                                             })
+        self.stack_count = 0  # only new stacks?
+        messageItems = []
         for stack in self.message_stacks:
-            # print("stack: ")
-            self.stack_count += 1 # only new stacks?
+            self.stack_count += 1  # only new stacks?
             author_id = stack["data-peer"]
             messages = stack.find_all("li")
-            #print("author_id: ", author_id)
-            #print()
-
             for message in messages:  # removing forwarded messages from message_list
                 replied_to_message = message.find("div", {"class": "im-replied--text"})
                 replied_to_msg_id = None
@@ -164,27 +168,35 @@ class VkSpiderSpider(Spider):
                     if (forwarded_messages):
                         for fwd_message in forwarded_messages:
                             #pprint("FORWARDED MESSAGE")
-                            forwarded_messages_list.append(self.handle_message(fwd_message, fwd_message["data-peer"],
-                                                                               author_id))
+                            forwarded_messages_list.append(fwd_message["data-msgid"])
+                            messageItem = self.handle_message(fwd_message, fwd_message["data-peer"], author_id)
+                            if messageItem:
+                                messageItems.append(messageItem)
+                                messageItem = None
                         # pprint(forwarded_messages_list)
                     receiver_id = message["data-peer"]
-                    self.handle_message(message, author_id, receiver_id, replied_to_msg_id, forwarded_messages_list)  # HANDLE AFTER FWD MESSAGES IN REAL CODE
-                #print()
+                    messageItem = self.handle_message(message, author_id, receiver_id, replied_to_msg_id, forwarded_messages_list)  # HANDLE AFTER FWD MESSAGES IN REAL CODE
+                    if messageItem:
+                        messageItems.append(messageItem)
+        return messageItems
 
     def handle_message(self, message, author_id, receiver_id, replied_to_msg_id=None, forwarded_msg_ids=[]):
         message_id = message["data-msgid"]
         if message_id not in self.message_ids:
+            messageItem = VkMessage()
             message_ts = message["data-ts"]
             message_text = message.find("div", {"class": lambda x: x
                                                                    and "im-mess--text" in x.split()
                                                 }).text.strip()
 
             self.message_ids.append(message_id)
-            print("author_id", author_id)
-            print("message_id: ", message_id)
-            print("replied_to_msg_id: ", replied_to_msg_id)
-            print("receiver_id: ", receiver_id)
-            print("message_ts: ", message_ts)
-            print("message_text: ", message_text)
-            print("forwarded_msg_ids: ", forwarded_msg_ids)
-        return message_id
+            messageItem["author"] = author_id
+            messageItem["messageId"] = message_id
+            messageItem["repliedToMessageId"] = replied_to_msg_id
+            messageItem["receiverId"] = receiver_id
+            messageItem["time"] = message_ts
+            messageItem["text"] = message_text
+            messageItem["forwardedMessagesIds"] = forwarded_msg_ids
+
+            return messageItem
+        return None

@@ -8,16 +8,17 @@ from scrapy import Item, Field
 
 class VkMessage(Item):
     messageId = Field()
-    message = Field()
+    text = Field()
     author = Field()
-    recieverId = Field()
+    receiverId = Field()
     time = Field()
-    repliedId = Field()
+    repliedToMessageId = Field()
     forwardedMessagesIds = Field()
     pass
 
 class VkDialogue(Item):
-    dialogueType = Field()
+    dialogueRef = Field()
     dialogueId = Field()
     name = Field()
+    messages = Field()
     pass
