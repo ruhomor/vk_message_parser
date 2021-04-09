@@ -1,25 +1,14 @@
-from scrapy import Spider, Request, FormRequest
-from vk.items import VkMessage, VkDialogue
-from urllib.parse import urlencode
-from urllib.parse import urlparse
-from urllib.parse import parse_qs
-import json
-from vk import pipelines
-from pprint import pprint
+from scrapy import Spider
 from bs4 import BeautifulSoup
 from selenium import webdriver
-# from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
-import os.path
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.keys import Keys
 from os import path
 import shutil
 import time
 from vk.settings import PROFILESTORAGEPATH, PROFILE
-from scrapy_selenium import SeleniumRequest
-
 
 class VkSpiderSpider(Spider):
     name = 'vk_spider'
@@ -27,8 +16,6 @@ class VkSpiderSpider(Spider):
     start_urls = ['https://vk.com/']
 
     def save_profile(self):
-        # driver.execute_script("window.close()")
-        # time.sleep(0.5)
         currentProfilePath = self.driver.capabilities[PROFILE]
         if path.exists(PROFILESTORAGEPATH):
             shutil.rmtree(PROFILESTORAGEPATH)
