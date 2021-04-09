@@ -25,7 +25,7 @@ Enter to project directory:\
 Create and activate virtualenv:\
 `$ python3 -m venv vk_venv && source ./vk_venv/bin/activate`\
 Install dependencies:\
-`(my_venv)$ pip3 install -r ./requirements.txt`
+`(vk_venv)$ pip3 install -r ./requirements.txt`
 
 ## Usage
 Create a file with you "email_password.txt" with your credentials:\
