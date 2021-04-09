@@ -51,9 +51,9 @@ class VkSpiderSpider(Spider):
         pass
 
     def parse_dialogues(self):
-        for dialogue in self.dialogue_list:
+        for dialogue in self.data_list_ids:
             self.driver.get("https://www.vk.com/im?sel=" + dialogue)
-        self.scroll_up_dialogue()
+            self.scroll_up_dialogue()
         pass
 
     def scroll_up_dialogue(self):
@@ -119,17 +119,8 @@ class VkSpiderSpider(Spider):
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
                                             firefox_profile=webdriver.FirefoxProfile(PROFILESTORAGEPATH),
                                             options=opts)
-#            self.check_login_status()
-            # coding bs here
-            self.driver.get("https://vk.com/im?sel=181395489")
-            # el = self.driver.find_element_by_tag_name("body")
-            # el.send_keys(Keys.HOME)
-            self.driver.execute_script("window.scrollTo({ top: 0, behavior: 'smooth' });")
-            el = self.driver.find_element_by_class_name("im-page--top-date-bar._im_top_date_bar")
-            self.driver.execute_script("arguments[0].scrollIntoView(alignToTop=false);", el)
-            # el = self.driver.find_element_by_class_name("im-page--top-date-bar._im_top_date_bar.im-page--date-bar-transition-inverse")
-            # self.driver.execute_script("arguments[0].scrollIntoView();", el)
-            # self.driver.execute_script("window.scrollTo({ top: 0, behavior: 'smooth' });")
+            self.check_login_status()
+
         else:
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install())
             self.sign_in()
