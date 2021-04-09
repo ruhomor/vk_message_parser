@@ -13,28 +13,25 @@
 ## General info
 The project is made for educational and scientific purposes.
 
-## Screenshots
-![Example screenshot](./img/screenshot.png)
-
 ## Technologies
 * Selenium
 * BeautifulSoup4
 
 ## Setup
-Clone repo:
-`$ git clone https://github.com/ruhomor/vk_message_parser.git`
-Enter to project directory
-`$ cd vk_message_parser`
-Create and activate virtualenv
-`$ python3 -m venv vk_venv && source ./vk_venv/bin/activate`
-Install dependencies
+Clone repo:\
+`$ git clone https://github.com/ruhomor/vk_message_parser.git`\
+Enter to project directory:\
+`$ cd vk_message_parser`\
+Create and activate virtualenv:\
+`$ python3 -m venv vk_venv && source ./vk_venv/bin/activate`\
+Install dependencies:\
 `(my_venv)$ pip3 install -r ./requirements.txt`
 
-## :
-Create a file with you "email_password.txt" with your credentials
-`$ echo "your_phone your_password" > email_password.txt`
-Launch the spider
-`$ scrapy crawl vk_spider`
+## Usage
+Create a file with you "email_password.txt" with your credentials:\
+`$ echo "your_phone your_password" > email_password.txt`\
+Launch the spider:\
+`$ scrapy crawl vk_spider`\
 If a 2-factor authentification window appears type in auth-code into the shell
 
 To-do list:
