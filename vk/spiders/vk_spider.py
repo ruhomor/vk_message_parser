@@ -47,7 +47,7 @@ class VkSpiderSpider(Spider):
             dialogueRef = soup.find("a", {"class": lambda x: x and "im-page--title-main-inner" in x.split()})
             dialogueItem["dialogueRef"] = dialogueRef
             dialogueItem["dialogueId"] = dialogue
-            dialogueItem["name"] = dialogue_dict["dialogue"]
+            dialogueItem["name"] = self.dialogue_dict["dialogue"]
             dialogueItem["messages"] = self.scroll_up_dialogue()
             yield dialogueItem
         pass
@@ -135,7 +135,7 @@ class VkSpiderSpider(Spider):
         for i in range(len(self.dialogue_list)):
             if self.dialogue_list[i]["data-list-id"] not in self.dialogue_dict.keys():
                 self.dialogue_dict[self.dialogue_list[i]["data-list-id"]]\
-                    = self.dialogue_list[i].find("span", {"class": "blind_label"})["aria-label"][SKIP:].strip()
+                    = self.dialogue_list[i].find("span", {"class": "blind_label"})["aria-label"][18:].strip() #fix for different language
         pass
 
     def update_stacks(self):
