@@ -10,12 +10,14 @@ class VkMessage(Item):
     messageId = Field()
     message = Field()
     author = Field()
+    recieverId = Field()
     time = Field()
     repliedId = Field()
+    forwardedMessagesIds = Field()
     pass
 
 class VkDialogue(Item):
-    dType = Field()
-    id = Field()
+    dialogueType = Field()
+    dialogueId = Field()
     name = Field()
     pass
