@@ -152,12 +152,12 @@ class VkSpiderSpider(Spider):
                                })
         self.stack_count = 0 # only new stacks?
         for stack in self.message_stacks:
-            print("stack: ")
+            # print("stack: ")
             self.stack_count += 1 # only new stacks?
             author_id = stack["data-peer"]
             messages = stack.find_all("li")
-            print("author_id: ", author_id)
-            print()
+            #print("author_id: ", author_id)
+            #print()
 
             for message in messages:  # removing forwarded messages from message_list
                 replied_to_message = message.find("div", {"class": "im-replied--text"})
@@ -176,25 +176,27 @@ class VkSpiderSpider(Spider):
                     forwarded_messages_list = []
                     if (forwarded_messages):
                         for fwd_message in forwarded_messages:
-                            pprint("FORWARDED MESSAGE")
-                            forwarded_messages_list.append(self.handle_message(fwd_message))
+                            #pprint("FORWARDED MESSAGE")
+                            forwarded_messages_list.append(self.handle_message(fwd_message, fwd_message["data-peer"],
+                                                                               author_id))
                         # pprint(forwarded_messages_list)
-                    self.handle_message(message, replied_to_msg_id,
-                                        forwarded_messages_list)  # HANDLE AFTER FWD MESSAGES IN REAL CODE
-                print()
+                    receiver_id = message["data-peer"]
+                    self.handle_message(message, author_id, receiver_id, replied_to_msg_id, forwarded_messages_list)  # HANDLE AFTER FWD MESSAGES IN REAL CODE
+                #print()
 
-    def handle_message(self, message, replied_to_msg_id=None, forwarded_msg_ids=[]):
+    def handle_message(self, message, author_id, receiver_id, replied_to_msg_id=None, forwarded_msg_ids=[]):
         message_id = message["data-msgid"]
         if message_id not in self.message_ids:
-            reciever_id = message["data-peer"]
             message_ts = message["data-ts"]
             message_text = message.find("div", {"class": lambda x: x
                                                                    and "im-mess--text" in x.split()
                                                 }).text.strip()
 
+            self.message_ids.append(message_id)
+            print("author_id", author_id)
             print("message_id: ", message_id)
             print("replied_to_msg_id: ", replied_to_msg_id)
-            print("reciever_id: ", reciever_id)
+            print("receiver_id: ", receiver_id)
             print("message_ts: ", message_ts)
             print("message_text: ", message_text)
             print("forwarded_msg_ids: ", forwarded_msg_ids)
