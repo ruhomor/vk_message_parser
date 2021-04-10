@@ -15,7 +15,7 @@ class VkPipeline:
 
 class PipelineAppendOneByOne:  # TODO fix indices
 
-    def __init__(self, spider):
+    def open_spider(self, spider):
         spider.logger.info('Opening csvs for appending')
         spider.logger.info('WARNING appending data without filtering')
         self.df = pd.DataFrame(columns=["dialogueId", "name", "dialogueRef", "messages"])

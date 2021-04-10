@@ -36,8 +36,8 @@ class VkSpiderSpider(Spider):
                 time.sleep(0.1)
             time.sleep(1)
             self.update_dialogues()
-        self.parse_dialogues()
-        pass
+        return self.parse_dialogues()
+
 
     def parse_dialogues(self):
         for dialogue in self.dialogue_dict.keys():
@@ -50,7 +50,7 @@ class VkSpiderSpider(Spider):
             dialogueItem["name"] = self.dialogue_dict["dialogue"]
             dialogueItem["messages"] = self.scroll_up_dialogue()
             yield dialogueItem
-        pass
+        self.dead = True
 
     def scroll_up_dialogue(self):
         WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
@@ -75,8 +75,8 @@ class VkSpiderSpider(Spider):
         time.sleep(5)
         el.click()
         el.click()
-        self.scroll_down_im()
-        pass
+        return self.scroll_down_im()
+
 
     def sign_in(self):
         self.driver.get("https://www.vk.com/")
@@ -89,24 +89,27 @@ class VkSpiderSpider(Spider):
         time.sleep(5)
         if self.driver.current_url == "https://vk.com/login?act=authcheck":
             el = WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("authcheck_code"))
-            el.send_keys(input())
+            el.send_keys(input("2-FACTOR-AUTH-KEY NEEDED TYPE IN: "))
         # self.driver.find_element_by_id("authcheck_code").send_keys(input())
             self.driver.find_element_by_id("login_authcheck_submit_btn").click()
-        self.after_login()
         self.save_profile()  # no need in signing in again
-        pass
+        return self.after_login()
+
 
     def check_login_status(self):
         self.driver.get("https://www.vk.com/feed")
         time.sleep(3)
-        if "feed" in self.driver.current_url:
-            self.after_login()
+        if ("feed" in self.driver.current_url) and ("login" not in self.driver.current_url):
+            return self.after_login()
         else:
-            self.sign_in()
+            return self.sign_in()
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super(VkSpiderSpider, self).__init__(**kwargs)
+        self.logger.info("INITIALIZING S")
         f = open("email_password.txt", 'r')
         self.username, self.password = f.readline().split()
+        self.dead = False
         self.dialogue_list = []
         self.dialogue_dict = {}
         self.timeout = 100
@@ -115,6 +118,7 @@ class VkSpiderSpider(Spider):
         self.message_ids = []
         f.close()
         opts = Options()
+        opts.page_load_strategy = 'normal'
         if path.exists(PROFILESTORAGEPATH):  # loads existing profile if it exists
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
                                             firefox_profile=webdriver.FirefoxProfile(PROFILESTORAGEPATH),
@@ -124,8 +128,10 @@ class VkSpiderSpider(Spider):
         pass
 
     def parse(self, response):
-        self.check_login_status()
-        pass
+        while (self.dead == False):
+            for dialogue in self.check_login_status():
+                yield dialogue
+
 
     def update_dialogues(self):
         soup = BeautifulSoup(self.driver.page_source, 'lxml')
