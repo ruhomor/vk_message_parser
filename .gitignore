@@ -130,6 +130,7 @@ dmypy.json
 
 # Driver files, venv and credentials
 
+*.csv
 email_password.txt
 chromedriver
 mozilla_profile/
