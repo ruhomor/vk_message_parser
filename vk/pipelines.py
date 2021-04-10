@@ -6,6 +6,7 @@
 
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
+from vk.items import VkMessage, VkDialogue
 import pandas as pd
 import psycopg2
 
@@ -31,13 +32,20 @@ class PipelineAppendOneByOne:  # TODO fix indices
         self.file2.close()
 
     def process_item(self, item, spider):
-        spider.logger.info('Processing dialogue: %s' % item["name"])
-        dialogueDic = dict(item)
-        dialogueDic["messages"] = [dialogueDic["messages"][i]["messageId"]
-                                   for i in range(len(dialogueDic["messages"]))]
-        self.df.append(dict(item), ignore_index=True).to_csv(self.file, header=False)
-        self.df2.append(dict(item)["messages"], ignore_index=True).to_csv(self.file, header=False)
+        if isinstance(item, VkMessage):
+            return self.handleVkMessage(item, spider)
+        if isinstance(item, VkDialogue):
+            return self.handleVkDialogue(item, spider)
         return item
+
+    def handleVkMessage(self, item, spider):
+        spider.logger.info('APPENDING MESSAGE')
+        self.df2.append(dict(item), ignore_index=True).to_csv(self.file2, header=False)
+
+    def handleVkDialogue(self, item, spider):
+        spider.logger.info('Processing dialogue: %s' % item["name"])
+        spider.logger.info('APPENDING DIALOGUE')
+        self.df.append(dict(item), ignore_index=True).to_csv(self.file, header=False)
 
 class WriteToPostgre:
 

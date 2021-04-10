@@ -43,12 +43,16 @@ class VkSpiderSpider(Spider):
         for dialogue in self.dialogue_dict.keys():
             dialogueItem = VkDialogue()
             self.driver.get("https://www.vk.com/im?sel=" + dialogue)
-            soup = self.driver.page_source
+            time.sleep(3)
+            soup = BeautifulSoup(self.driver.page_source, 'lxml')
             dialogueRef = soup.find("a", {"class": lambda x: x and "im-page--title-main-inner" in x.split()})
-            dialogueItem["dialogueRef"] = dialogueRef
+            dialogueItem["dialogueRef"] = dialogueRef["href"]
             dialogueItem["dialogueId"] = dialogue
-            dialogueItem["name"] = self.dialogue_dict["dialogue"]
-            dialogueItem["messages"] = self.scroll_up_dialogue()
+            dialogueItem["name"] = self.dialogue_dict[dialogue]
+            messageItems = self.scroll_up_dialogue()
+            for messageItem in messageItems:
+                yield messageItem
+            dialogueItem["messages"] = [messageItem["messageId"] for messageItem in messageItems]
             yield dialogueItem
         self.dead = True
 
@@ -56,18 +60,16 @@ class VkSpiderSpider(Spider):
         WebDriverWait(self.driver, timeout=60).until(lambda d: d.find_element_by_id("im_dialogs"))
         pcounter = 0
         messageItems = []
-        for messageItem in self.update_stacks(): #filtering unique messages
-            if messageItem["messageId"] not in self.message_ids:
-                messageItems.append(messageItem)
+        for messageItem in self.update_stacks():
+            messageItems.append(messageItem)
         while pcounter < self.stack_count:
             pcounter = self.stack_count
             for i in range(20):
                 self.driver.execute_script("window.scrollTo({ top: 0, behavior: 'smooth' });")
                 time.sleep(0.1)
             time.sleep(1)
-            for messageItem in self.update_stacks(): #filtering unique items
-                if messageItem["messageId"] not in self.message_ids:
-                    messageItems.append(messageItem)
+            for messageItem in self.update_stacks():
+                messageItems.append(messageItem)
         return messageItems
 
     def after_login(self):
@@ -188,7 +190,7 @@ class VkSpiderSpider(Spider):
 
     def handle_message(self, message, author_id, receiver_id, replied_to_msg_id=None, forwarded_msg_ids=[]):
         message_id = message["data-msgid"]
-        if message_id not in self.message_ids:
+        if message_id not in self.message_ids: # filtering unique messages
             messageItem = VkMessage()
             message_ts = message["data-ts"]
             message_text = message.find("div", {"class": lambda x: x
@@ -203,6 +205,5 @@ class VkSpiderSpider(Spider):
             messageItem["time"] = message_ts
             messageItem["text"] = message_text
             messageItem["forwardedMessagesIds"] = forwarded_msg_ids
-
             return messageItem
         return None
