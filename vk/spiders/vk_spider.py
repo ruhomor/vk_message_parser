@@ -199,11 +199,12 @@ class VkSpiderSpider(Spider):
 
             self.message_ids.append(message_id)
             messageItem["author"] = author_id
-            messageItem["messageId"] = message_id
+            messageItem["messageId"] = message_id.replace("_", "")
             messageItem["repliedToMessageId"] = replied_to_msg_id
             messageItem["receiverId"] = receiver_id
             messageItem["time"] = message_ts
             messageItem["text"] = message_text
-            messageItem["forwardedMessagesIds"] = forwarded_msg_ids
+            messageItem["forwardedMessagesIds"] = [fwd_message_id.replace("_", "")
+                                                   for fwd_message_id in forwarded_msg_ids]
             return messageItem
         return None
