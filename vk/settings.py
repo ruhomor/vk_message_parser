@@ -70,7 +70,7 @@ DOWNLOAD_DELAY = 1
 #}
 ITEM_PIPELINES = {
     'vk.pipelines.PipelineAppendOneByOne': 1,
-#    'vk.pipelines.WriteToPostgre': 2,
+    'vk.pipelines.WriteToPostgre': 2,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
