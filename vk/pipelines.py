@@ -46,18 +46,10 @@ class PipelineAppendOneByOne:  # TODO fix indices
         spider.logger.info('APPENDING DIALOGUE')
         self.df.append(dict(item), ignore_index=True).to_csv(self.file, header=False)
 
+
 class WriteToPostgre:
 
-    def connect_super(self, spider):
-        spider.logger.info("Connecting to Postgre as SuperUser")
-        self.con = psycopg2.connect(dbname='postgres',
-                                    user='postgres',
-                                    host='localhost',
-                                    password='')
-        self.con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        self.cur = self.con.cursor()
-
-    def create_db(self, spider): # so bad
+    def create_db(self, spider):  # so bad
         spider.logger.info("Checking if Database exists")
         self.cur.execute("SELECT datname FROM pg_database;")
         list_database = self.cur.fetchall()
@@ -92,8 +84,8 @@ class WriteToPostgre:
             username=sql.Identifier(spider.name)))
         self.con.commit()
 
-    def disconnect_super(self, spider):
-        spider.logger.info("Disconnecting SuperUser")
+    def disconnect_from_db(self, spider):
+        spider.logger.info("Disconnecting from Database")
         self.cur.close()
         self.con.close()
 
@@ -132,24 +124,27 @@ class WriteToPostgre:
                         );'''
             self.cur.execute(query)
 
-    def connect_spider(self, spider):
-        hostname = 'localhost'
-        username = spider.name
-        password = spider.name  # none???
-        database = 'vkdata'
-        spider.logger.info('Connecting {spidername} to {dbname}'.format(spidername=spider.name, dbname=database))
+    def connect_to_db(self, spider, hostname, username, password, database):
+        spider.logger.info('Connecting to {dbname} as {username}'.format(dbname=database, username=username))
         self.con = psycopg2.connect(host=hostname, user=username, password=password, dbname=database)
         self.cur = self.con.cursor()
 
     def open_spider(self, spider):
-        self.connect_super(spider)
-        self.create_db(spider)
-        self.create_tables(spider)
-        self.create_role(spider)
-        self.grant_priviliges(spider)
-        self.disconnect_super(spider)
-        self.connect_spider(spider)
+        self.connect_to_db(spider, 'localhost', 'postgres', '', 'postgres')
+        self.con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 
+        self.create_db(spider)
+        self.disconnect_from_db(spider)
+
+        self.connect_to_db(spider, 'localhost', 'postgres', '', 'vkdata')
+        self.con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+
+        self.create_tables(spider)
+        # self.create_role(spider)
+        # self.grant_priviliges(spider)
+        # self.disconnect_from_db(spider)
+
+        # self.connect_to_db(spider, 'localhost', spider.name, spider.name, 'vkdata')
 
     def process_item(self, item, spider):
         if isinstance(item, VkMessage):
@@ -158,35 +153,39 @@ class WriteToPostgre:
             return self.handleVkDialogue(item, spider)
         return item
 
-
     def close_spider(self, spider):
-        spider.logger.info('Closing postgres connection')
-        self.cur.close()
-        self.con.close()
+        self.disconnect_from_db(spider)
 
+    def check_item(self, item, key):
+        if item[key]:
+            return sql.SQL(item[key])
+        else:
+            return sql.SQL("NULL")
 
     def handleVkMessage(self, item, spider):
         spider.logger.info('APPENDING MESSAGE TO DATABASE')
-        self.cur.execute(sql.SQL('''insert into messagestable values ({messageId},{author},{messageText},
-                                {receiverId},{ts},{repliedToMessageId} ARRAY {forwardedMessagesIds})''')
-                         .format(messageId=sql.Identifier(item["messageId"]),
-                                 author=sql.Identifier(item["author"]),
-                                 messageText=sql.Identifier(item["text"]),
-                                 receiverId=sql.Identifier(item["receiverId"]),
-                                 ts=sql.Identifier(item["time"]),
-                                 repliedToMessageId=sql.Identifier(item["repliedToMessageId"]),
-                                 forwardedMessagesIds=sql.Identifier([item["forwardedMessagesIds"]])))
+        query = sql.SQL(('''INSERT INTO messagestable (messageid, author, messagetext, receiverid, ts,
+                            repliedtomessageid, forwardedmessagesids)
+                            VALUES ({messageId},{author},'{messageText}',
+                            {receiverId},{ts},{repliedToMessageId}, %s)''')).format(
+            messageId=self.check_item(item, "messageId"),
+            author=self.check_item(item, "author"),
+            messageText=self.check_item(item, "text"),
+            receiverId=self.check_item(item, "receiverId"),
+            ts=self.check_item(item, "time"),
+            repliedToMessageId=self.check_item(item, "repliedToMessageId"))
+        self.cur.execute(query, (list(map(int, item["forwardedMessagesIds"])),))
         self.con.commit()
         return item
 
     def handleVkDialogue(self, item, spider):
         spider.logger.info('Processing dialogue: %s' % item["name"])
         spider.logger.info('APPENDING DIALOGUE TO DATABASE')
-        self.cur.execute(sql.SQL('''insert into dialoguestable values
-                                ({dialogueId},{dialogueName},{dialogueRef}, ARRAY {messageIds})''')
-                         .format(dialogueId=sql.Identifier(item["dialogueId"]),
-                                 dialogueName=sql.Identifier(item["name"]),
-                                 dialogueRef=sql.Identifier(item["dialogueRef"]),
-                                 messageIds=sql.Identifier([item["messages"]])))
+        query = sql.SQL(('''INSERT INTO dialoguestable (dialogueid, dialoguename, dialogueref, messageids) VALUES
+                            ({dialogueId},{dialogueName},{dialogueRef}, %s)''')).format(
+            dialogueId=self.check_item(item, "dialogueId"),
+            dialogueName=self.check_item(item, "name"),
+            dialogueRef=self.check_item(item, "dialogueRef"))
+        self.cur.execute(query, (list(map(int, item["messages"])),))
         self.con.commit()
         return item
