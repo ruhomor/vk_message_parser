@@ -48,79 +48,108 @@ class PipelineAppendOneByOne:  # TODO fix indices
 
 class WriteToPostgre:
 
+    def connect_super(self, spider):
+        spider.logger.info("Connecting to Postgre as SuperUser")
+        self.con = psycopg2.connect(dbname='postgres',
+                                    user='postgres',
+                                    host='localhost',
+                                    password='')
+        self.con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        self.cur = self.con.cursor()
+
     def create_db(self, spider): # so bad
-        spider.logger.info("CREATING DATABASE")
-        con = psycopg2.connect(dbname='postgres',
-                               user='postgres',
-                               host='localhost',
-                               password='')
-        con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cur = con.cursor()
-
-        cur.execute("SELECT datname FROM pg_database;")
-        list_database = cur.fetchall()
+        spider.logger.info("Checking if Database exists")
+        self.cur.execute("SELECT datname FROM pg_database;")
+        list_database = self.cur.fetchall()
         if ("vkdata",) in list_database:
-            spider.logger.info("'{}' Database already exist".format("vkdata"))
+            spider.logger.info("'{}' Database already exists".format("vkdata"))
         else:
-            spider.logger.info("'{}' Database not exist.".format("vkdata"))
-            cur.execute(sql.SQL("CREATE DATABASE {dbname}").format(
+            spider.logger.info("'{}' Database did not exist.".format("vkdata"))
+            self.cur.execute(sql.SQL("CREATE DATABASE {dbname}").format(
                 dbname=sql.Identifier("vkdata")))
-            con.commit()
+            self.con.commit()
 
-        query = sql.SQL("CREATE USER {username} WITH PASSWORD {password}").format(
-            username=sql.Identifier(spider.name),
-            password=sql.Placeholder()
-        )
-        cur.execute(query, (spider.name,))
-        con.commit()
+    def create_role(self, spider):
+        spider.logger.info("Checking if role exists")
+        self.cur.execute("SELECT rolname FROM pg_roles;")
+        self.con.commit()
+        list_users = self.cur.fetchall()
+        if (spider.name,) in list_users:
+            spider.logger.info("'{}' Role already exists".format(spider.name))
+        else:
+            spider.logger.info("'{}' Role did not exist.".format(spider.name))
+            query = sql.SQL("CREATE USER {username} WITH PASSWORD {password}").format(
+                username=sql.Identifier(spider.name),
+                password=sql.Placeholder()
+            )
+            self.cur.execute(query, (spider.name,))
+            self.con.commit()
 
-        cur.execute(sql.SQL("GRANT ALL ON DATABASE {db_name} TO {username};").format(
+    def grant_priviliges(self, spider):
+        spider.logger.info("Granting priviliges to {username}".format(username=spider.name))
+        self.cur.execute(sql.SQL("GRANT ALL ON DATABASE {db_name} TO {username};").format(
             db_name=sql.Identifier("vkdata"),
             username=sql.Identifier(spider.name)))
-        con.commit()
+        self.con.commit()
 
-        cur.close()
-        con.close()
+    def disconnect_super(self, spider):
+        spider.logger.info("Disconnecting SuperUser")
+        self.cur.close()
+        self.con.close()
 
     def create_tables(self, spider):
-        spider.logger.info("CREATING TABLES")
-        query = '''CREATE TABLE messagesTable(
-                messageId               INT NOT NULL,
-                author                  TEXT NOT NULL,
-                messageText             TEXT,
-                receiverId              INT NOT NULL,
-                ts                      INT NOT NULL,
-                repliedToMessageId      INT,
-                forwardedMessagesIds    INT[],
-                PRIMARY KEY (messageId)
-            );'''
-        self.cur.execute(query)
-        query = '''CREATE TABLE dialoguesTable(
-                dialogueId      INT NOT NULL,
-                dialogueName    TEXT NOT NULL,
-                dialogueRef     TEXT NOT NULL,
-                messageIds      INT[],
-                PRIMARY KEY     (dialogueId)
-            );'''
-        self.cur.execute(query)
+        self.cur.execute("SELECT tablename FROM pg_tables;")
+        list_tables = self.cur.fetchall()
+        if ("messagestable",) in list_tables:
+            spider.logger.info("'{}' already exists".format("messagestable"))
+        else:
+            spider.logger.info("'{}' table did not exist.".format("dialoguestable"))
+            spider.logger.info("CREATING TABLE FOR MESSAGES")
+            query = '''CREATE TABLE messagestable(
+                            messageId               INT NOT NULL,
+                            author                  TEXT NOT NULL,
+                            messageText             TEXT,
+                            receiverId              INT NOT NULL,
+                            ts                      INT NOT NULL,
+                            repliedToMessageId      INT,
+                            forwardedMessagesIds    INT[],
+                            PRIMARY KEY (messageId)
+                        );'''
+            self.cur.execute(query)
 
-    def open_spider(self, spider):
-        self.create_db(spider)
-        spider.logger.info('Opening postgres connection')
-        spider.logger.info('WARNING appending data without filtering')
+        if ("messagestable",) in list_tables:
+            spider.logger.info("'{}' already exists".format("messagestable"))
+        else:
+            spider.logger.info("'{}' table did not exist.".format("dialoguestable"))
+            spider.logger.info("CREATING TABLE FOR MESSAGES")
+
+            query = '''CREATE TABLE dialoguestable(
+                            dialogueId      INT NOT NULL,
+                            dialogueName    TEXT NOT NULL,
+                            dialogueRef     TEXT NOT NULL,
+                            messageIds      INT[],
+                            PRIMARY KEY     (dialogueId)
+                        );'''
+            self.cur.execute(query)
+
+    def connect_spider(self, spider):
         hostname = 'localhost'
         username = spider.name
         password = spider.name  # none???
         database = 'vkdata'
-        self.connection = psycopg2.connect(host=hostname, user=username, password=password, dbname=database)
-        self.cur = self.connection.cursor()
-        self.create_tables(spider)
+        spider.logger.info('Connecting {spidername} to {dbname}'.format(spidername=spider.name, dbname=database))
+        self.con = psycopg2.connect(host=hostname, user=username, password=password, dbname=database)
+        self.cur = self.con.cursor()
 
-    def close_spider(self, spider):
-        spider.logger.info('Closing postgres connection')
-        spider.logger.info('WARNING appending data without filtering')
-        self.cur.close()
-        self.connection.close()
+    def open_spider(self, spider):
+        self.connect_super(spider)
+        self.create_db(spider)
+        self.create_tables(spider)
+        self.create_role(spider)
+        self.grant_priviliges(spider)
+        self.disconnect_super(spider)
+        self.connect_spider(spider)
+
 
     def process_item(self, item, spider):
         if isinstance(item, VkMessage):
@@ -128,6 +157,13 @@ class WriteToPostgre:
         if isinstance(item, VkDialogue):
             return self.handleVkDialogue(item, spider)
         return item
+
+
+    def close_spider(self, spider):
+        spider.logger.info('Closing postgres connection')
+        self.cur.close()
+        self.con.close()
+
 
     def handleVkMessage(self, item, spider):
         spider.logger.info('APPENDING MESSAGE TO DATABASE')
@@ -140,7 +176,7 @@ class WriteToPostgre:
                                  ts=sql.Identifier(item["time"]),
                                  repliedToMessageId=sql.Identifier(item["repliedToMessageId"]),
                                  forwardedMessagesIds=sql.Identifier([item["forwardedMessagesIds"]])))
-        self.connection.commit()
+        self.con.commit()
         return item
 
     def handleVkDialogue(self, item, spider):
@@ -152,5 +188,5 @@ class WriteToPostgre:
                                  dialogueName=sql.Identifier(item["name"]),
                                  dialogueRef=sql.Identifier(item["dialogueRef"]),
                                  messageIds=sql.Identifier([item["messages"]])))
-        self.connection.commit()
+        self.con.commit()
         return item
