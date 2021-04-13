@@ -120,6 +120,7 @@ class VkSpiderSpider(Spider):
         self.message_ids = []
         f.close()
         opts = Options()
+        #opts.add_argument("--headless")
         opts.page_load_strategy = 'normal'
         if path.exists(PROFILESTORAGEPATH):  # loads existing profile if it exists
             self.driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),
