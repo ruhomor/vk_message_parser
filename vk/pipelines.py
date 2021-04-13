@@ -182,7 +182,7 @@ class WriteToPostgre:
         spider.logger.info('Processing dialogue: %s' % item["name"])
         spider.logger.info('APPENDING DIALOGUE TO DATABASE')
         query = sql.SQL(('''INSERT INTO dialoguestable (dialogueid, dialoguename, dialogueref, messageids) VALUES
-                            ({dialogueId},{dialogueName},{dialogueRef}, %s)''')).format(
+                            ({dialogueId},'{dialogueName}','{dialogueRef}', %s)''')).format(
             dialogueId=self.check_item(item, "dialogueId"),
             dialogueName=self.check_item(item, "name"),
             dialogueRef=self.check_item(item, "dialogueRef"))
