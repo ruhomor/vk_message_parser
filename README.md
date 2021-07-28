@@ -1,5 +1,5 @@
 # vk_message_parser
-> vk_message_parser is an application written in Python that scrapes and downloads vk user's messages. Use responsibly.
+> vk_message_parser is an application written in Python that scrapes and downloads vk user's messages. Made it for my own purpose.
 
 ## Table of contents
 * [General info](#general-info)
@@ -34,16 +34,17 @@ Launch the spider:\
 `$ scrapy crawl vk_spider`\
 If a 2-factor authentification window appears type in auth-code into the shell
 
-To-do list:
+Never-To-Do list:
+* Container?
 * Fix receiver_id field()
 * Save messages to DB
-* Logging and debugging
+* Debugging
 
 ## Status
-Project is: _in progress_
+Project is: _dead_
 
 ## Inspiration
-Project is inspired by some girl and a disgusting vk api that does not allow me to download my own messages
+disgusting vk api that does not allow me to download my own messages
 
 ## Contact
 Created by [@ruhomor] - feel free to contact me!
